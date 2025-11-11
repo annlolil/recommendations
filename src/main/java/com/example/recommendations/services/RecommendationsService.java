@@ -16,6 +16,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class RecommendationsService implements RecommendationsInterface{
@@ -42,7 +43,7 @@ public class RecommendationsService implements RecommendationsInterface{
 
         try {
             List<MostPlayedMediaDto> mostPlayedMedias = restClient.get()
-                    .uri(serviceInstance.getUri() + "/api/v1/mediaplayer/mostplayed")
+                    .uri(serviceInstance.getUri() + "/api/v1/mediaplayer/getmostplayed")
                     .retrieve()
                     .body(new ParameterizedTypeReference<List<MostPlayedMediaDto>>() {
                     });
@@ -57,19 +58,38 @@ public class RecommendationsService implements RecommendationsInterface{
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Media not found");
             } else {
                 throw new ResponseStatusException(HttpStatus.valueOf(e.getStatusCode().value()),
-                        "Something went wrong when fetching media: " + e.getResponseBodyAsString());
+                        "Something went wrong when fetching media id:s: " + e.getResponseBodyAsString());
             }
         }
         return mediaIds;
     }
 
+    public Map<Long, List<String>> fetchGenresByMediaIds() {
 
+        List<Long> mediaIds = getMostPlayedMediaIds();
 
-//    private Map<Long, List<String>> fetchGenresByMediaIds(List<Long> mediaIds) {
-//        List<String> genres = new ArrayList<>();
-//
-//
-//
-//
-//    }
+        ServiceInstance serviceInstance = loadBalancer.choose("media-handling");
+        if (serviceInstance == null) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "The service is not available");
+        }
+
+        try {
+            String idsParam = mediaIds.stream()
+                    .map(String::valueOf)
+                    .collect(Collectors.joining(","));
+
+            String url = serviceInstance.getUri() + "/api/v1/mediahandling/genresbymediaids?mediaIds=" + idsParam;
+            Map<Long, List<String>> genresByMediaIds = restClient.get()
+                    .uri(url)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<Map<Long, List<String>>>() {
+                    });
+
+            return genresByMediaIds;
+
+        } catch (RestClientResponseException e) {
+            throw new ResponseStatusException(HttpStatus.valueOf(e.getStatusCode().value()),
+                    "Error fetching genres: " + e.getResponseBodyAsString());
+        }
+    }
 }

@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -27,9 +28,9 @@ public class RecommendationsController {
         return new ResponseEntity<>(recommendationsService.getMostPlayedMediaIds(), HttpStatus.OK);
     }
 
-//    // Used to give recommendations
-//    @GetMapping("/getgenresbymediaids")
-//    public ResponseEntity<List<String>> genresByMediaIds() {
-//        return new ResponseEntity<>(recommendationsService.getGenresByMediaIds(), HttpStatus.OK);
-//    }
+    // Used to give recommendations
+    @GetMapping("/getgenresbymediaids")
+    public ResponseEntity<Map<Long, List<String>>> genresByMediaIds() {
+        return new ResponseEntity<>(recommendationsService.fetchGenresByMediaIds(), HttpStatus.OK);
+    }
 }
