@@ -21,8 +21,15 @@ public class RecommendationsController {
         this.recommendationsService = recommendationsService;
     }
 
+    //Can delete this later on...
     @GetMapping("/mostplayedmediaids") //testing
     public ResponseEntity<List<Long>> mostPlayedMediaIds() {
         return new ResponseEntity<>(recommendationsService.getMostPlayedMediaIds(), HttpStatus.OK);
     }
+
+//    // Used to give recommendations
+//    @GetMapping("/getgenresbymediaids")
+//    public ResponseEntity<List<String>> genresByMediaIds() {
+//        return new ResponseEntity<>(recommendationsService.getGenresByMediaIds(), HttpStatus.OK);
+//    }
 }

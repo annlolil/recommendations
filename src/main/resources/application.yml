@@ -2,8 +2,11 @@ spring:
   application:
     name: recommendations
 
+
 server:
   port: 8083
+  error:
+    include-message: always
 
 eureka:
   client:
