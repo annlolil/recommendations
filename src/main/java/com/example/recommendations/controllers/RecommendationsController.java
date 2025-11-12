@@ -9,7 +9,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -22,15 +21,15 @@ public class RecommendationsController {
         this.recommendationsService = recommendationsService;
     }
 
-    //Can delete this later on...
-    @GetMapping("/mostplayedmediaids") //testing
-    public ResponseEntity<List<Long>> mostPlayedMediaIds() {
-        return new ResponseEntity<>(recommendationsService.getMostPlayedMediaIds(), HttpStatus.OK);
+    // Can remove later on, just added this now to test it in postman.
+    @GetMapping("/gettopgenres")
+    public ResponseEntity<List<String>> calculateTopGenres() {
+        return new ResponseEntity<>(recommendationsService.calculateTopGenres(), HttpStatus.OK);
     }
 
-    // Used to give recommendations
-    @GetMapping("/getgenresbymediaids")
-    public ResponseEntity<Map<Long, List<String>>> genresByMediaIds() {
-        return new ResponseEntity<>(recommendationsService.fetchGenresByMediaIds(), HttpStatus.OK);
+    // Working progress...
+    @GetMapping("/recommendation")
+    public ResponseEntity<List<String>> recommendation() {
+        return new ResponseEntity<>(recommendationsService.getRecommendations(), HttpStatus.OK);
     }
 }

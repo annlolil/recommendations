@@ -1,13 +1,9 @@
 package com.example.recommendations.services;
 
-import com.example.recommendations.dtos.MostPlayedMediaDto;
-
 import java.util.List;
-import java.util.Map;
 
 public interface RecommendationsInterface {
 
-    List<Long> getMostPlayedMediaIds();
+    List<String> getRecommendations();
 
-//    Map<Long, List<String>> getGenresByMediaIds(List<Long> mediaIds);
 }
