@@ -41,7 +41,7 @@ public class RecommendationsService implements RecommendationsInterface{
 
         try {
             List<PlayedMediaDto> playedMedias = restClient.get()
-                    .uri(serviceInstance.getUri() + "/api/v1/mediaplayer/getmostplayed")
+                    .uri(serviceInstance.getUri() + "/api/v1/mediaplayer/allplayed")
                     .retrieve()
                     .body(new ParameterizedTypeReference<List<PlayedMediaDto>>() {
                     });
