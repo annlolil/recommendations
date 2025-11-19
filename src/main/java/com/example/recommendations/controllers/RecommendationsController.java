@@ -1,5 +1,6 @@
 package com.example.recommendations.controllers;
 
+import com.example.recommendations.dtos.RecommendationDto;
 import com.example.recommendations.services.RecommendationsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -17,19 +18,25 @@ public class RecommendationsController {
     private final RecommendationsService recommendationsService;
 
     @Autowired
-    public RecommendationsController( RecommendationsService recommendationsService) {
+    public RecommendationsController(RecommendationsService recommendationsService) {
         this.recommendationsService = recommendationsService;
     }
 
-    // Can remove later on, just added this now to test it in postman.
+    // Keep endpoint for testing
     @GetMapping("/gettopgenres")
     public ResponseEntity<List<String>> calculateTopGenres() {
         return new ResponseEntity<>(recommendationsService.calculateTopGenres(), HttpStatus.OK);
     }
 
-    // Working progress...
-    @GetMapping("/recommendation")
-    public ResponseEntity<List<String>> recommendation() {
+    // Keep endpoint for testing
+    @GetMapping("/recommendationids")
+    public ResponseEntity<List<Long>> calculateRecommendationIds() {
         return new ResponseEntity<>(recommendationsService.getRecommendations(), HttpStatus.OK);
+    }
+
+    // Main endpoint of microservice
+    @GetMapping("/recommendations")
+    public ResponseEntity<List<RecommendationDto>> calculateRecommendations() {
+        return new ResponseEntity<>(recommendationsService.formatRecommendations(), HttpStatus.OK);
     }
 }

@@ -1,6 +1,12 @@
 package com.example.recommendations.services;
 
+import com.example.recommendations.clients.MediaHandlingClient;
+import com.example.recommendations.clients.MediaPlayerClient;
 import com.example.recommendations.dtos.PlayedMediaDto;
+import com.example.recommendations.dtos.RecommendationDto;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.loadbalancer.LoadBalancerClient;
@@ -17,18 +23,123 @@ import java.util.stream.Collectors;
 @Service
 public class RecommendationsService implements RecommendationsInterface{
 
+    private final MediaHandlingClient mediaHandlingClient;
+    private final MediaPlayerClient mediaPlayerClient;
     private final RestClient restClient;
     private final LoadBalancerClient loadBalancer;
 
     @Autowired
-    public RecommendationsService(RestClient.Builder restClientBuilder,LoadBalancerClient loadBalancer) {
+    public RecommendationsService(MediaHandlingClient mediaHandlingClient,
+                                  MediaPlayerClient mediaPlayerClient,
+                                  RestClient.Builder restClientBuilder,
+                                  LoadBalancerClient loadBalancer) {
+        this.mediaHandlingClient = mediaHandlingClient;
+        this.mediaPlayerClient = mediaPlayerClient;
         this.restClient = restClientBuilder.build();
         this.loadBalancer = loadBalancer;
     }
 
     @Override
-    public List<String> getRecommendations() { // Working progress...
-        return List.of();
+    public List<Long> getRecommendations() {
+        // Get ID list of user's played media
+        List<Long> streamedMedia = mediaPlayerClient.getAllPlayedMedia();
+
+        // Get streaming history by songId:"playCount"
+        Map<Long, Long> playCounts = fetchPlayCountByMediaIds();
+
+        // Calculate top genres (max 3)
+        Set<Long> topGenres = new LinkedHashSet<>();
+        playCounts.entrySet().stream()
+                // Sort by playCount, DESC
+                .sorted((a, b) -> Long.compare(b.getValue(), a.getValue()))
+                .forEach(entry -> {
+                    if (topGenres.size() < 3) {
+                        Long genreId = mediaHandlingClient.getGenreIdByMediaId(entry.getKey());
+                        topGenres.add(genreId);
+                    }
+                });
+
+        // To return later
+        List<Long> recommendations = new ArrayList<>();
+
+        // !!! WIP, INCOMPLETE LOGIC BELOW !!!
+        // Needs to parse through all media AGAIN if recommendations < 10
+
+        // Get 8 media based on top genres
+        List<Long> topGenreCandidates = new ArrayList<>();
+        for (Long genreId : topGenres) {
+            List<Long> media = mediaHandlingClient.getMediaIdsByGenreId(genreId);
+            media.stream()
+                    .filter(id -> !streamedMedia.contains(id))
+                    .forEach(topGenreCandidates::add);
+        }
+
+        Collections.shuffle(topGenreCandidates);
+        int topGenrePickCount = Math.min(8, topGenreCandidates.size());
+        recommendations.addAll(topGenreCandidates.subList(0, topGenrePickCount));
+
+        // Get from other genres
+        List<Long> allGenres = new ArrayList<>(mediaHandlingClient.getAllGenreIds());
+        allGenres.removeAll(topGenres);
+
+        List<Long> otherGenreCandidates = new ArrayList<>();
+        for (Long otherGenre : allGenres) {
+            List<Long> media = mediaHandlingClient.getMediaIdsByGenreId(otherGenre);
+            media.stream()
+                    .filter(id -> !streamedMedia.contains(id))
+                    .filter(id -> !recommendations.contains(id))
+                    .forEach(otherGenreCandidates::add);
+        }
+
+        Collections.shuffle(otherGenreCandidates);
+        int otherPickCount = Math.min(2, otherGenreCandidates.size());
+        recommendations.addAll(otherGenreCandidates.subList(0, otherPickCount));
+
+        if (recommendations.size() < 10) {
+            List<Long> allMedia = mediaHandlingClient.getAllMediaIds();
+
+            List<Long> unused = allMedia.stream()
+                    .filter(id -> !streamedMedia.contains(id))
+                    .filter(id -> !recommendations.contains(id))
+                    .toList();
+
+            for (Long id : unused) {
+                if (recommendations.size() >= 10) break;
+                recommendations.add(id);
+            }
+        }
+
+        return recommendations;
+    }
+
+    @Override
+    public List<RecommendationDto> formatRecommendations() {
+        // Get IDs of recommendations
+        List<Long> recommendationIds = getRecommendations();
+
+        // Store final recommendations in presentable format
+        List<RecommendationDto> recommendations = new ArrayList<>();
+
+        ObjectMapper mapper = new ObjectMapper(); // create mapper
+        mapper.registerModule(new JavaTimeModule()); // make mapper support parsing of LocalDate in media
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS); // get better date format
+
+        // For each ID, use media-handling for mapping ID into RecommendationDto
+        for (Long id : recommendationIds) {
+            try {
+                String mediaJson = mediaHandlingClient.getMediaByMediaId(id);
+
+                RecommendationDto dto =
+                        mapper.readValue(mediaJson, RecommendationDto.class);
+
+                recommendations.add(dto);
+
+            } catch (Exception e) {
+                System.err.println("Failed to parse media ID " + id + ": " + e.getMessage());
+            }
+        }
+
+        return recommendations;
     }
 
     // Fetches play count for each media id from media-player service
