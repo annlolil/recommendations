@@ -6,7 +6,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.loadbalancer.LoadBalancerClient;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
@@ -78,10 +80,14 @@ public class MediaPlayerClient {
     }
 
     // IDs of user's ALL PLAYED media
-    public List<Long> getAllPlayedMedia() {
+    public List<Long> getAllPlayedMedia(Jwt jwt) {
+
+        String token = jwt.getTokenValue();
+
         try {
             String json = restClient.get()
                     .uri(resolveBaseUrl() + "/api/v1/mediaplayer/allplayed")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                     .retrieve()
                     .body(String.class);
             return extractMediaIDs(json);

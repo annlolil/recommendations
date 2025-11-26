@@ -4,7 +4,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.loadbalancer.LoadBalancerClient;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.server.ResponseStatusException;
@@ -37,17 +39,25 @@ public class MediaHandlingClient {
     }
 
     // Get genre ID from media ID
-    public Long getGenreIdByMediaId(Long mediaID) {
+    public Long getGenreIdByMediaId(Long mediaID, Jwt jwt) {
+
+        String token = jwt.getTokenValue();
+
         return restClient.get()
                 .uri(resolveBaseUrl() + "/api/v1/mediahandling/genreidbymediaid/{id}", mediaID)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .retrieve()
                 .body(Long.class);
     }
 
     // Get all media IDs belonging to certain genre
-    public List<Long> getMediaIdsByGenreId(Long genreId) {
+    public List<Long> getMediaIdsByGenreId(Long genreId, Jwt jwt) {
+
+        String token = jwt.getTokenValue();
+
         List<Map<String, Object>> mediaList = restClient.get()
                 .uri(resolveBaseUrl() + "/api/v1/mediahandling/mediabygenre/{id}", genreId)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .retrieve()
                 .body(new ParameterizedTypeReference<List<Map<String, Object>>>() {});
 
@@ -61,9 +71,13 @@ public class MediaHandlingClient {
     }
 
     // Get all existing media IDs
-    public List<Long> getAllMediaIds() {
+    public List<Long> getAllMediaIds(Jwt jwt) {
+
+        String token = jwt.getTokenValue();
+
         List<Map<String, Object>> mediaList = restClient.get()
                 .uri(resolveBaseUrl() + "/api/v1/mediahandling/media")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .retrieve()
                 .body(new ParameterizedTypeReference<List<Map<String, Object>>>() {});
 
@@ -77,9 +91,13 @@ public class MediaHandlingClient {
     }
 
     // Get all existing genre IDs
-    public List<Long> getAllGenreIds() {
+    public List<Long> getAllGenreIds(Jwt jwt) {
+
+        String token = jwt.getTokenValue();
+
         List<Map<String, Object>> genreList = restClient.get()
                 .uri(resolveBaseUrl() + "/api/v1/mediahandling/genres")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .retrieve()
                 .body(new ParameterizedTypeReference<List<Map<String, Object>>>() {});
 
@@ -93,9 +111,13 @@ public class MediaHandlingClient {
     }
 
     // Get complete media from media ID
-    public String getMediaByMediaId(Long mediaId) {
+    public String getMediaByMediaId(Long mediaId, Jwt jwt) {
+
+        String token = jwt.getTokenValue();
+
         String media = restClient.get()
                 .uri(resolveBaseUrl() + "/api/v1/mediahandling/media/{id}", mediaId)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .retrieve()
                 .body(String.class);
 

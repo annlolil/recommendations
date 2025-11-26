@@ -2,6 +2,11 @@ spring:
   application:
     name: recommendations
 
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://81.231.105.129:8084/realms/edufyrealm
 
 server:
   port: 8083
@@ -11,8 +16,9 @@ server:
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: http://localhost:8761/eureka/ #change later on to eureka container name
     register-with-eureka: true
     fetch-registry: true
   instance:
     prefer-ip-address: true
+
