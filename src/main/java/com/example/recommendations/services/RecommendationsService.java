@@ -11,7 +11,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.loadbalancer.LoadBalancerClient;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
@@ -40,12 +42,12 @@ public class RecommendationsService implements RecommendationsInterface{
     }
 
     @Override
-    public List<Long> getRecommendations() {
+    public List<Long> getRecommendations(Jwt jwt) {
         // Get ID list of user's played media
-        List<Long> streamedMedia = mediaPlayerClient.getAllPlayedMedia();
+        List<Long> streamedMedia = mediaPlayerClient.getAllPlayedMedia(jwt);
 
         // Get streaming history by songId:"playCount"
-        Map<Long, Long> playCounts = fetchPlayCountByMediaIds();
+        Map<Long, Long> playCounts = fetchPlayCountByMediaIds(jwt);
 
         // Calculate top genres (max 3)
         Set<Long> topGenres = new LinkedHashSet<>();
@@ -54,7 +56,7 @@ public class RecommendationsService implements RecommendationsInterface{
                 .sorted((a, b) -> Long.compare(b.getValue(), a.getValue()))
                 .forEach(entry -> {
                     if (topGenres.size() < 3) {
-                        Long genreId = mediaHandlingClient.getGenreIdByMediaId(entry.getKey());
+                        Long genreId = mediaHandlingClient.getGenreIdByMediaId(entry.getKey(), jwt);
                         topGenres.add(genreId);
                     }
                 });
@@ -68,7 +70,7 @@ public class RecommendationsService implements RecommendationsInterface{
         // Get 8 media based on top genres
         List<Long> topGenreCandidates = new ArrayList<>();
         for (Long genreId : topGenres) {
-            List<Long> media = mediaHandlingClient.getMediaIdsByGenreId(genreId);
+            List<Long> media = mediaHandlingClient.getMediaIdsByGenreId(genreId, jwt);
             media.stream()
                     .filter(id -> !streamedMedia.contains(id))
                     .forEach(topGenreCandidates::add);
@@ -79,12 +81,12 @@ public class RecommendationsService implements RecommendationsInterface{
         recommendations.addAll(topGenreCandidates.subList(0, topGenrePickCount));
 
         // Get from other genres
-        List<Long> allGenres = new ArrayList<>(mediaHandlingClient.getAllGenreIds());
+        List<Long> allGenres = new ArrayList<>(mediaHandlingClient.getAllGenreIds(jwt));
         allGenres.removeAll(topGenres);
 
         List<Long> otherGenreCandidates = new ArrayList<>();
         for (Long otherGenre : allGenres) {
-            List<Long> media = mediaHandlingClient.getMediaIdsByGenreId(otherGenre);
+            List<Long> media = mediaHandlingClient.getMediaIdsByGenreId(otherGenre, jwt);
             media.stream()
                     .filter(id -> !streamedMedia.contains(id))
                     .filter(id -> !recommendations.contains(id))
@@ -96,7 +98,7 @@ public class RecommendationsService implements RecommendationsInterface{
         recommendations.addAll(otherGenreCandidates.subList(0, otherPickCount));
 
         if (recommendations.size() < 10) {
-            List<Long> allMedia = mediaHandlingClient.getAllMediaIds();
+            List<Long> allMedia = mediaHandlingClient.getAllMediaIds(jwt);
 
             List<Long> unused = allMedia.stream()
                     .filter(id -> !streamedMedia.contains(id))
@@ -113,9 +115,9 @@ public class RecommendationsService implements RecommendationsInterface{
     }
 
     @Override
-    public List<RecommendationDto> formatRecommendations() {
+    public List<RecommendationDto> formatRecommendations(Jwt jwt) {
         // Get IDs of recommendations
-        List<Long> recommendationIds = getRecommendations();
+        List<Long> recommendationIds = getRecommendations(jwt);
 
         // Store final recommendations in presentable format
         List<RecommendationDto> recommendations = new ArrayList<>();
@@ -127,7 +129,7 @@ public class RecommendationsService implements RecommendationsInterface{
         // For each ID, use media-handling for mapping ID into RecommendationDto
         for (Long id : recommendationIds) {
             try {
-                String mediaJson = mediaHandlingClient.getMediaByMediaId(id);
+                String mediaJson = mediaHandlingClient.getMediaByMediaId(id, jwt);
 
                 RecommendationDto dto =
                         mapper.readValue(mediaJson, RecommendationDto.class);
@@ -143,7 +145,9 @@ public class RecommendationsService implements RecommendationsInterface{
     }
 
     // Fetches play count for each media id from media-player service
-    public Map<Long, Long> fetchPlayCountByMediaIds() {
+    public Map<Long, Long> fetchPlayCountByMediaIds(Jwt jwt) {
+
+        String token = jwt.getTokenValue();
 
         ServiceInstance serviceInstance = loadBalancer.choose("media-player");
         if (serviceInstance == null) {
@@ -153,6 +157,7 @@ public class RecommendationsService implements RecommendationsInterface{
         try {
             List<PlayedMediaDto> playedMedias = restClient.get()
                     .uri(serviceInstance.getUri() + "/api/v1/mediaplayer/allplayed")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                     .retrieve()
                     .body(new ParameterizedTypeReference<List<PlayedMediaDto>>() {
                     });
@@ -175,7 +180,7 @@ public class RecommendationsService implements RecommendationsInterface{
     }
 
     // Fetches genres by the media id:s that has been played the most
-    public Map<Long, List<String>> fetchGenresByMediaIds(Set<Long> mediaIds) {
+    public Map<Long, List<String>> fetchGenresByMediaIds(Set<Long> mediaIds, Jwt jwt) {
 
         if (mediaIds == null || mediaIds.isEmpty()) {
             return Collections.emptyMap();
@@ -186,6 +191,8 @@ public class RecommendationsService implements RecommendationsInterface{
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "The service is not available");
         }
 
+        String token = jwt.getTokenValue();
+
         try {
             String idsParam = mediaIds.stream()
                     .map(String::valueOf)
@@ -195,6 +202,7 @@ public class RecommendationsService implements RecommendationsInterface{
 
             Map<Long, List<String>> genresByMediaIds = restClient.get()
                     .uri(url)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                     .retrieve()
                     .body(new ParameterizedTypeReference<Map<Long, List<String>>>() {});
 
@@ -211,11 +219,11 @@ public class RecommendationsService implements RecommendationsInterface{
     }
 
     // Gets a list of top 3 genres based on what genres a user has played the most
-    public List<String> calculateTopGenres() {
+    public List<String> calculateTopGenres(Jwt jwt) {
 
-        Map<Long, Long> playCountsByMediaIds = fetchPlayCountByMediaIds();
+        Map<Long, Long> playCountsByMediaIds = fetchPlayCountByMediaIds(jwt);
 
-        Map<Long, List<String>> genresByMediaIds = fetchGenresByMediaIds(playCountsByMediaIds.keySet());
+        Map<Long, List<String>> genresByMediaIds = fetchGenresByMediaIds(playCountsByMediaIds.keySet(), jwt);
 
         Map<String, Long> playCountPerGenre = new HashMap<>();
         for(Map.Entry<Long, List<String>> entry : genresByMediaIds.entrySet()) {
