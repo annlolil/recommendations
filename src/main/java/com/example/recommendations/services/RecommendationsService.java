@@ -64,9 +64,6 @@ public class RecommendationsService implements RecommendationsInterface{
         // To return later
         List<Long> recommendations = new ArrayList<>();
 
-        // !!! WIP, INCOMPLETE LOGIC BELOW !!!
-        // Needs to parse through all media AGAIN if recommendations < 10
-
         // Get 8 media based on top genres
         List<Long> topGenreCandidates = new ArrayList<>();
         for (Long genreId : topGenres) {
@@ -76,6 +73,7 @@ public class RecommendationsService implements RecommendationsInterface{
                     .forEach(topGenreCandidates::add);
         }
 
+        // Randomize 8 recommendations
         Collections.shuffle(topGenreCandidates);
         int topGenrePickCount = Math.min(8, topGenreCandidates.size());
         recommendations.addAll(topGenreCandidates.subList(0, topGenrePickCount));
@@ -93,10 +91,12 @@ public class RecommendationsService implements RecommendationsInterface{
                     .forEach(otherGenreCandidates::add);
         }
 
+        // Randomize last 2 recommendations..
         Collections.shuffle(otherGenreCandidates);
         int otherPickCount = Math.min(2, otherGenreCandidates.size());
         recommendations.addAll(otherGenreCandidates.subList(0, otherPickCount));
 
+        // Add more random media if recommendations are still under 10
         if (recommendations.size() < 10) {
             List<Long> allMedia = mediaHandlingClient.getAllMediaIds(jwt);
 
